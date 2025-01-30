@@ -1,20 +1,17 @@
 import "./normal.css";
 import "./App.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ChatMessage from "./ChatMessage";
 
 function App() {
   const [input, setInput] = useState("");
-  const [chatLog, setChatLog] = useState([
-    {
-      user: "gpt",
-      message: "Hello, how can I help you today?",
-    },
-    {
-      user: "me",
-      message: "Hello",
-    },
-  ]);
+  const [chatLog, setChatLog] = useState([]);
+  const [models, setModels] = useState([]);
+  const [currModel, setCurrModel] = useState("gpt-3.5-turbo-1106");
+
+  useEffect(() => {
+    getEngines();
+  }, []);
 
   function clearChat() {
     setChatLog([]);
@@ -22,8 +19,13 @@ function App() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setChatLog([...chatLog, { user: "me", message: `${input}` }]);
-    setInput("");
+    let newChatLog = [...chatLog, { user: "me", message: `${input}` }];
+    await setInput("");
+    setChatLog(newChatLog);
+
+    const messages = JSON.stringify({
+      message: newChatLog.map((message) => message.message).join("\n"),
+    });
 
     const response = await fetch("http://localhost:5000/chat", {
       method: "POST",
@@ -31,20 +33,36 @@ function App() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: chatLog.map((message) => message.message).join(""),
+        message: messages,
+        currModel: currModel,
       }),
     });
     const data = await response.json();
-    setChatLog([...chatLog, { user: "gpt", message: data.message }]);
+    setChatLog([...newChatLog, { user: "gpt", message: data.message }]);
     console.log(data.message);
+  }
+
+  function getEngines() {
+    fetch("http://localhost:5000/models")
+      .then((response) => response.json())
+      .then((data) => setModels(data.data));
   }
 
   return (
     <div className="App">
       <aside className="sidemenu">
-        <div className="side-menu-button">
+        <div className="side-menu-button" onClick={clearChat}>
           <span>+</span>
           New Chat
+        </div>
+        <div className="models">
+          <select onChange={(e) => setCurrModel(e.target.value)}>
+            {models.map((model, index) => (
+              <option key={model.id} value={model.id}>
+                {model.id}
+              </option>
+            ))}
+          </select>
         </div>
       </aside>
       <section className="chatbox">
